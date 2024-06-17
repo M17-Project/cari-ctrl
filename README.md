@@ -15,5 +15,5 @@ Example CARI control tool
 | -afc *1/0*         | Automatic Frequency Control (where available), 1-on, 0-off                          |            |
 | -rx *1/0*          | Activate RX baseband downstream, 1-on, 0-off                                        |            |
 
-*) This is the address of the Remote Radio Unit (RRU), with port set with `-ctrl` argument.
+*) This is the address of the Remote Radio Unit (RRU), with port set with `-ctrl` argument.<br>
 **) This is the address of the ZMQ baseband publisher, running at the Baseband Unit (BBU).
