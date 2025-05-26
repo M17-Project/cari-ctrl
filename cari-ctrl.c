@@ -51,6 +51,8 @@ void dbg_print(const char* color_code, const char* fmt, ...)
 
 int main(int argc, char *argv[])
 {
+	uint8_t dev_reset = 0;
+
     if(argc>1)
     {
     	config.tx_pwr=-10.0f;
@@ -69,8 +71,8 @@ int main(int argc, char *argv[])
                     //reset
                     if(argv[i][1]=='r')
                     {
-                        dbg_print(TERM_YELLOW, "Device reset\n");
-                        return 0;
+						dev_reset = 1;
+						i++;
                     }
                     
                     //local PUBlisher's address and port
@@ -86,7 +88,7 @@ int main(int argc, char *argv[])
                     else if(argv[i][1]=='d')
                     {
                         memcpy(config.re_addr, argv[i+1], strlen(argv[i+1]));
-                        dbg_print(0, "RE REQ address: ");
+                        dbg_print(0, "Remote CTRL address: ");
                         dbg_print(TERM_GREEN, "%s\n", config.re_addr);
                         i++;
                     }
@@ -179,7 +181,7 @@ int main(int argc, char *argv[])
         }
 
         void *zmq_ctx=zmq_ctx_new();
-        void *zmq_req=zmq_socket(zmq_ctx, ZMQ_REQ);
+        void *zmq_ctrl=zmq_socket(zmq_ctx, ZMQ_REQ);
 
         char my_addr[128]={'t', 'c', 'p', ':', '/', '/'}; //this device's address
         char re_addr[128]={'t', 'c', 'p', ':', '/', '/'}; //remote device's address
@@ -192,8 +194,8 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        dbg_print(0, "ZMQ REQ ");
-        if(zmq_connect(zmq_req, re_addr)==0)
+        dbg_print(0, "ZMQ CTRL ");
+        if(zmq_connect(zmq_ctrl, re_addr)==0)
             dbg_print(TERM_GREEN, "connected\n");
         else
         {
@@ -201,18 +203,41 @@ int main(int argc, char *argv[])
             return 1;
         }
 
+		if(dev_reset)
+		{
+			dbg_print(0, "Device reset ");
+
+			uint8_t cmd=CMD_DEV_SET_REG;
+			uint8_t req[5] = {cmd, 0x05, 0x00, 0x00, 0x00};
+			zmq_send(zmq_ctrl, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+			zmq_recv(zmq_ctrl, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "- malformed response\n");
+            }
+			
+			return 0;
+		}
+
         //"valid" PUBlisher's address?
         if(strlen(config.my_addr)>0)
         {
             dbg_print(0, "Sending SUB command to device... ");
             memcpy(&my_addr[6], config.my_addr, strlen(config.my_addr));
             uint8_t req[128];
-            uint8_t cmd=CMD_SUB_CONNECT;
+            uint8_t cmd=CMD_SUB_CONN;
             req[0]=cmd;
             memcpy(&req[3], my_addr, strlen(my_addr));
             *((uint16_t*)&req[1])=strlen(my_addr)+3;
-            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT); //full address with "tcp://"
-            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            zmq_send(zmq_ctrl, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT); //full address with "tcp://"
+            zmq_recv(zmq_ctrl, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
             if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
             {
                 if(rep_buff[3]==ERR_OK)
@@ -228,12 +253,13 @@ int main(int argc, char *argv[])
 		
 		if(strlen(config.re_addr)>0)
 		{
+			//TODO: update this
             //rx freq
-			if(config.rx_freq>0)
+			/*if(config.rx_freq>0)
 			{
 				dbg_print(0, "Setting RX freq to %d Hz ", config.rx_freq);
 				uint8_t req[128];
-				uint8_t cmd=CMD_SET_RX_FREQ;
+				uint8_t cmd=CMD_SUB_SET_PARAM;
 				req[0]=cmd;
 				memcpy(&req[3], (uint8_t*)&config.rx_freq, sizeof(config.rx_freq));
 				*((uint16_t*)&req[1])=sizeof(config.rx_freq)+3;
@@ -250,10 +276,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 
             //tx freq
-			if(config.tx_freq>0)
+			/*if(config.tx_freq>0)
 			{
 				dbg_print(0, "Setting TX freq to %d Hz ", config.tx_freq);
 				uint8_t req[128];
@@ -274,10 +300,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 
             //rx freq correction
-			if(config.rx_freq_corr>-1000.0f)
+			/*if(config.rx_freq_corr>-1000.0f)
 			{
 				dbg_print(0, "Setting RX freq correction to %3.1f ppm ", config.rx_freq_corr);
 				uint8_t req[128];
@@ -298,10 +324,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 
             //tx freq correction
-			if(config.tx_freq_corr>-1000.0f)
+			/*if(config.tx_freq_corr>-1000.0f)
 			{
 				dbg_print(0, "Setting TX freq correction to %3.1f ppm ", config.tx_freq_corr);
 				uint8_t req[128];
@@ -322,10 +348,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 
 			//afc
-			if(config.afc!=-1)
+			/*if(config.afc!=-1)
 			{
 				if(config.afc)
 					dbg_print(0, "Enabling AFC ");
@@ -350,10 +376,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 
             //tx power
-			if(config.tx_pwr>=0.0f)
+			/*if(config.tx_pwr>=0.0f)
 			{
                 uint8_t pwr_round=floor(config.tx_pwr/0.25f);
 				dbg_print(0, "Setting TX power to %2.2f dBm ", pwr_round*0.25f);
@@ -375,10 +401,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 			
 			//rx enabled?
-			if(config.rx_ena!=-1)
+			/*if(config.rx_ena!=-1)
 			{
 				dbg_print(0, "RX ");
 				if(config.rx_ena==1)
@@ -403,10 +429,10 @@ int main(int argc, char *argv[])
 				{
 					dbg_print(TERM_RED, "malformed response\n");
 				}
-			}
+			}*/
 		}
 
-        zmq_close(zmq_req);
+        zmq_close(zmq_ctrl);
         zmq_ctx_destroy(zmq_ctx);
         
         dbg_print(0, "Done, exiting.\n");

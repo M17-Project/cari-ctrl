@@ -2,39 +2,31 @@
  * interface_cmds.h
  *
  *  Created on: Dec 27, 2023
- *  Revised on: Mar 29, 2024
+ *  Revised on: May 26, 2025
  *  
- *      Author: Wojciech Kaczmarski, SP5WWP, M17 Project
+ *      Author: Wojciech Kaczmarski, SP5WWP
+ * 				M17 Foundation
  * 
- *   Reference: TBF
+ *   Reference: CARI 1.3
  */
 #pragma once
 
-enum cari_cmd_t
+typedef enum
 {
-	CMD_PING,
+    CMD_PING,
+    CMD_DEV_SET_REG,
+    CMD_SUB_SET_PARAM,
+    CMD_SUB_EXEC,
+    CMD_SUB_CONN,
+    CMD_SUB_START_BB_STREAM,
+    CMD_DEV_START_SPVN_STREAM,
 
-	//SET
-	CMD_SET_RX_FREQ,
-	CMD_SET_TX_FREQ,
-	CMD_SET_TX_POWER,
-	CMD_SET_RESERVED,
-	CMD_SET_RX_FREQ_CORR,
-	CMD_SET_TX_FREQ_CORR,
-	CMD_SET_AFC,
-	CMD_SET_TX_START,
-	CMD_SET_RX,
-	CMD_SUB_CONNECT,
-	CMD_STREAM_DATA,
-
-	//GET
-	CMD_GET_IDENT = 0x80,
-	CMD_GET_CAPS,
-	CMD_GET_RX_FREQ,
-	CMD_GET_TX_FREQ,
-	CMD_GET_TX_POWER,
-	CMD_GET_FREQ_CORR
-};
+    CMD_DEV_GET_IDENT = 0x80,
+    CMD_DEV_GET_REG,
+    CMD_SUB_GET_CAPS,
+    CMD_SUB_GET_PARAM,
+    CMD_DEV_GET_SPVN_LIST
+} cid_t;
 
 enum cari_err_t
 {
