@@ -12,7 +12,6 @@
 #include "term.h" //colored terminal font
 
 uint8_t rep_buff[1024];
-int len;
 
 //config
 struct re_config_t
@@ -61,6 +60,7 @@ void print_help(const char *program_name) {
 	printf("\n");
     printf("Optional options:\n");
     printf("  -r, --reset           Reset remote device\n");
+    printf("  -i, --ident           Get device's IDENT string\n");
     printf("  -p, --power=DBM       RF power setpoint in dBm (where ALC is available) as a decimal number\n");
     printf("  -f, --rf=FREQ         RX frequency in Hertz as an integer (420000000-450000000)\n");
     printf("  -F, --tf=FREQ         TX frequency in Hertz as an integer (420000000-450000000)\n");
@@ -77,6 +77,7 @@ void print_help(const char *program_name) {
 int main(int argc, char *argv[])
 {
     uint8_t dev_reset = 0;
+    uint8_t get_ident = 0;
 
     // Initialize default values
     config.tx_pwr = -10.0f;
@@ -93,6 +94,7 @@ int main(int argc, char *argv[])
     static struct option long_options[] =
     {
         {"reset",   no_argument,       0, 'r'},
+        {"ident",   no_argument,       0, 'i'},
         {"source",  required_argument, 0, 's'},
         {"dest",    required_argument, 0, 'd'},
         {"power",   required_argument, 0, 'p'},
@@ -106,16 +108,29 @@ int main(int argc, char *argv[])
         {0, 0, 0, 0}
     };
 
+    //autogenerate the arg list
+    char arglist[64] = {0};
+    for(uint8_t i=0; i<sizeof(long_options)/sizeof(struct option)-1; i++)
+    {
+        arglist[strlen(arglist)] = long_options[i].val;
+        if(long_options[i].has_arg != no_argument)
+            arglist[strlen(arglist)] = ':';
+    }
+
     int opt;
     int option_index = 0;
 
     // Parse command line arguments
-    while ((opt = getopt_long(argc, argv, "rs:d:p:f:F:c:C:a:R:h", long_options, &option_index)) != -1) 
+    while ((opt = getopt_long(argc, argv, arglist, long_options, &option_index)) != -1) 
     {
         switch (opt) 
         {
             case 'r': // reset
                 dev_reset = 1;
+                break;
+
+            case 'i': // reset
+                get_ident = 1;
                 break;
 
             case 's': // local PUB address
@@ -249,6 +264,25 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if(get_ident) {
+        dbg_print(0, "Getting device's identifier string ");
+
+        uint8_t cmd = CMD_DEV_GET_IDENT;
+        uint8_t req[3] = {cmd, 0x03, 0x00};
+        zmq_send(zmq_ctrl, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+        zmq_recv(zmq_ctrl, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+        if(rep_buff[0] == cmd) { //response OK?
+            dbg_print(TERM_GREEN, "OK");
+            dbg_print(TERM_DEFAULT, "\n\"%s\"\n", &rep_buff[3]);
+        } else {
+            dbg_print(TERM_RED, "- malformed response\n");
+        }
+
+        zmq_close(zmq_ctrl);
+        zmq_ctx_destroy(zmq_ctx);
+        return 0;
+    }
+
     if(dev_reset) {
         dbg_print(0, "Device reset ");
 
@@ -317,158 +351,158 @@ int main(int argc, char *argv[])
             }
         }*/
 
-//tx freq
-			/*if(config.tx_freq>0)
-			{
-				dbg_print(0, "Setting TX freq to %d Hz ", config.tx_freq);
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_TX_FREQ;
-				req[0]=cmd;
-				memcpy(&req[3], (uint8_t*)&config.tx_freq, sizeof(config.tx_freq));
-				*((uint16_t*)&req[1])=sizeof(config.tx_freq)+3;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
+        // tx freq
+        /*if(config.tx_freq>0)
+        {
+            dbg_print(0, "Setting TX freq to %d Hz ", config.tx_freq);
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_TX_FREQ;
+            req[0]=cmd;
+            memcpy(&req[3], (uint8_t*)&config.tx_freq, sizeof(config.tx_freq));
+            *((uint16_t*)&req[1])=sizeof(config.tx_freq)+3;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
 
-            //rx freq correction
-			/*if(config.rx_freq_corr>-1000.0f)
-			{
-				dbg_print(0, "Setting RX freq correction to %3.1f ppm ", config.rx_freq_corr);
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_RX_FREQ_CORR;
-				req[0]=cmd;
-				memcpy(&req[3], (uint8_t*)&config.rx_freq_corr, sizeof(config.rx_freq_corr));
-				*((uint16_t*)&req[1])=sizeof(config.rx_freq_corr)+3;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
+        // rx freq correction
+        /*if(config.rx_freq_corr>-1000.0f)
+        {
+            dbg_print(0, "Setting RX freq correction to %3.1f ppm ", config.rx_freq_corr);
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_RX_FREQ_CORR;
+            req[0]=cmd;
+            memcpy(&req[3], (uint8_t*)&config.rx_freq_corr, sizeof(config.rx_freq_corr));
+            *((uint16_t*)&req[1])=sizeof(config.rx_freq_corr)+3;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
 
-            //tx freq correction
-			/*if(config.tx_freq_corr>-1000.0f)
-			{
-				dbg_print(0, "Setting TX freq correction to %3.1f ppm ", config.tx_freq_corr);
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_TX_FREQ_CORR;
-				req[0]=cmd;
-				memcpy(&req[3], (uint8_t*)&config.tx_freq_corr, sizeof(config.tx_freq_corr));
-				*((uint16_t*)&req[1])=sizeof(config.tx_freq_corr)+3;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
+        // tx freq correction
+        /*if(config.tx_freq_corr>-1000.0f)
+        {
+            dbg_print(0, "Setting TX freq correction to %3.1f ppm ", config.tx_freq_corr);
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_TX_FREQ_CORR;
+            req[0]=cmd;
+            memcpy(&req[3], (uint8_t*)&config.tx_freq_corr, sizeof(config.tx_freq_corr));
+            *((uint16_t*)&req[1])=sizeof(config.tx_freq_corr)+3;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
 
-			//afc
-			/*if(config.afc!=-1)
-			{
-				if(config.afc)
-					dbg_print(0, "Enabling AFC ");
-				else
-					dbg_print(0, "Disabling AFC ");
-				
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_AFC;
-				req[0]=cmd;
-				req[3]=config.afc;
-				req[1]=4;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
+        // afc
+        /*if(config.afc!=-1)
+        {
+            if(config.afc)
+                dbg_print(0, "Enabling AFC ");
+            else
+                dbg_print(0, "Disabling AFC ");
 
-            //tx power
-			/*if(config.tx_pwr>=0.0f)
-			{
-                uint8_t pwr_round=floor(config.tx_pwr/0.25f);
-				dbg_print(0, "Setting TX power to %2.2f dBm ", pwr_round*0.25f);
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_TX_POWER;
-				req[0]=cmd;
-				req[3]=pwr_round;
-				*((uint16_t*)&req[1])=4;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
-			
-			//rx enabled?
-			/*if(config.rx_ena!=-1)
-			{
-				dbg_print(0, "RX ");
-				if(config.rx_ena==1)
-					dbg_print(0, "enable ");
-				else
-					dbg_print(0, "disable ");
-				uint8_t req[128];
-				uint8_t cmd=CMD_SET_RX;
-				req[0]=cmd;
-				req[3]=config.rx_ena;
-				*((uint16_t*)&req[1])=4;
-				zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
-				zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
-				if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
-				{
-					if(rep_buff[3]==ERR_OK)
-						dbg_print(TERM_GREEN, "OK\n");
-					else
-						dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
-				}
-				else
-				{
-					dbg_print(TERM_RED, "malformed response\n");
-				}
-			}*/
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_AFC;
+            req[0]=cmd;
+            req[3]=config.afc;
+            req[1]=4;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
+
+        // tx power
+        /*if(config.tx_pwr>=0.0f)
+        {
+            uint8_t pwr_round=floor(config.tx_pwr/0.25f);
+            dbg_print(0, "Setting TX power to %2.2f dBm ", pwr_round*0.25f);
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_TX_POWER;
+            req[0]=cmd;
+            req[3]=pwr_round;
+            *((uint16_t*)&req[1])=4;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
+
+        // rx enabled?
+        /*if(config.rx_ena!=-1)
+        {
+            dbg_print(0, "RX ");
+            if(config.rx_ena==1)
+                dbg_print(0, "enable ");
+            else
+                dbg_print(0, "disable ");
+            uint8_t req[128];
+            uint8_t cmd=CMD_SET_RX;
+            req[0]=cmd;
+            req[3]=config.rx_ena;
+            *((uint16_t*)&req[1])=4;
+            zmq_send(zmq_req, req, *((uint16_t*)&req[1]), ZMQ_DONTWAIT);
+            zmq_recv(zmq_req, (char*)rep_buff, sizeof(rep_buff), 0); //get reply
+            if(rep_buff[0]==cmd && *((uint16_t*)&rep_buff[1])==4) //response OK?
+            {
+                if(rep_buff[3]==ERR_OK)
+                    dbg_print(TERM_GREEN, "OK\n");
+                else
+                    dbg_print(TERM_YELLOW, "ERR %d\n", rep_buff[3]);
+            }
+            else
+            {
+                dbg_print(TERM_RED, "malformed response\n");
+            }
+        }*/
     }
 
     zmq_close(zmq_ctrl);
